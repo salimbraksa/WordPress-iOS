@@ -68,6 +68,8 @@ platform :ios do
 
     UI.user_error!("Unable to find .xctestrun file at #{build_products_path}") if test_plan_path.nil? || !File.exist?((test_plan_path))
 
+    add_buildkite_analytics_token(xctestrun_path: test_plan_path)
+
     run_tests(
       workspace: WORKSPACE_PATH,
       scheme: 'WordPress',
@@ -396,5 +398,22 @@ platform :ios do
       configuration = Xcodeproj::Config.new(config)
       configuration.attributes['VERSION_SHORT']
     end
+  end
+
+  def add_buildkite_analytics_token(xctestrun_path:)
+    require 'plist'
+
+    token_key = 'BUILDKITE_ANALYTICS_TOKEN'
+    token = ENV.fetch(token_key)
+    return if token.nil?
+
+    xctestrun = Plist.parse_xml(xctestrun_path)
+    xctestrun['TestConfigurations'].each do |configuration|
+      configuration['TestTargets'].each do |target|
+        target['EnvironmentVariables'][token_key] = token
+      end
+    end
+
+    File.write(xctestrun_path, Plist::Emit.dump(xctestrun))
   end
 end
